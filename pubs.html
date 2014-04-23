@@ -1,0 +1,56 @@
+<!DOCTYPE HTML>
+<html lang="en-US">
+<head>
+    <meta charset="UTF-8">
+    <title></title>
+   
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+        }
+        #doam {
+            min-height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="doam"></div>    
+    <script src="http://maps.google.com/maps/api/js?sensor=false&libraries=geometry"></script>
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+    <script src="doam.js"></script>
+    <script>
+        var doam = new DrawOnAMap('doam');
+        doam.persistMap = true;
+
+        var mapMarkers = [];
+        doam.onComplete = function() {
+
+            for (var i = 0; i < mapMarkers.length; i++) {
+                mapMarkers[i].setMap(null);
+            }
+            mapMarkers = [];
+
+            jQuery.getJSON('pubs.json', function(json) {
+                jQuery.each(json, function(i, v) {
+                    var latlng = new google.maps.LatLng(
+                        v.pub.lat,
+                        v.pub.lng
+                    );
+                    if (doam.containsPoint(latlng)) {
+                        mapMarkers.push(
+                            new google.maps.Marker({
+                                position: latlng,
+                                map: doam.getMap(),
+                                title: 'Pub!'
+                            })
+                        );
+                    } 
+                });
+            });
+        }
+
+        doam.init();
+    </script>
+</body>
+</html>
