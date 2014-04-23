@@ -26,8 +26,8 @@ function DrawOnAMap(elemId, options)
         fillColor: '#FF0000',
         fillOpacity: 0.2,
         mapOptions: {
-            center:             new google.maps.LatLng(52.689, 1.44),
-            zoom:               10,
+            center:             new google.maps.LatLng(55.55, -2.06),
+            zoom:               6,
             panControl:         false,
             zoomControl:        true,
             mapTypeControl:     false,
@@ -55,7 +55,8 @@ function DrawOnAMap(elemId, options)
      * @access private
      */
     var lastMarker = null, 
-        trace = null;
+        trace = null,
+        bounds = new google.maps.LatLngBounds();
    
     /**
      * Class boolean variables
@@ -78,15 +79,70 @@ function DrawOnAMap(elemId, options)
      */
     this.options = {}, 
     this.elem = {};
-        
-	/**
-     * Base64 allowed characters
-     *
-     * @access private
-     */
-	var _allowedChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
     
     // --------------------------- Public  Methods -------------------------- //
+   
+    /**
+     * Class constructor
+     *
+     * @access public
+     */    
+    this.init = function() {
+        // Initialise public options
+        plugin.options = _extend({}, defaults, options);
+       
+        // Get the element
+        var elem = document.getElementById(elemId);
+        
+        // Test for element
+        if (elem === null) {
+           throw new Error('Unable to find element with id of: ' + elemId);
+        }
+       
+        // Set element
+        plugin.elem = elem;
+
+        // Attempt to load the map state from storage
+        var getparams = _getLocalStorage();
+
+        if (Object.keys(getparams).length == 4) {
+                
+            // Get map params from url
+            var zoom = parseInt(getparams.zoom);
+            var center = new google.maps.LatLng(
+                getparams.centerY, 
+                getparams.centerX
+            );
+                
+            // Create new map and set draggable mode
+            _createMap(true);
+            
+            // Loop through map points and add to map
+            var mapPoints = JSON.parse(getparams.points);
+            if (mapPoints.length > 0) {
+                for(var i = 0; i < mapPoints.length; i++) {
+                    _placeMarker(
+                        new google.maps.LatLng(
+                            mapPoints[i].k,
+                            mapPoints[i].A
+                        )
+                    );
+                }
+                    
+                // Add first marker and redraw map
+                _placeMarker(
+                    points[0]
+                );
+            }
+            
+            // Set map zoom and center
+            plugin.map.setCenter(center);
+            plugin.map.setZoom(zoom);
+        } else {
+            // Create a new map
+            _createMap(false);
+        }
+    }
 
     /**
      * Resets the map
@@ -99,12 +155,19 @@ function DrawOnAMap(elemId, options)
        
        // Remove the overlay data from memory
        _clearOverlays();
-       
-       // Get the base url of the page
-       var baseurl = _getBaseUrl();
-       
-       // Store the map position in the URL
-       document.location = baseurl + '#';
+
+        // Clear the local storage
+        window.localStorage.removeItem('DrawOnAMap:Points');
+        window.localStorage.removeItem('DrawOnAMap:zoom');
+        window.localStorage.removeItem('DrawOnAMap:center:x');
+        window.localStorage.removeItem('DrawOnAMap:center:y');
+
+        bounds = new google.maps.LatLngBounds();
+        points = null;
+        trace = null;
+
+        // Call empty reset function
+        this.onReset();
     }
 
     /**
@@ -123,6 +186,13 @@ function DrawOnAMap(elemId, options)
      */
     this.getMap = function() {
         return this.map;
+    }
+
+    /**
+     * @access public
+     */
+    this.getActiveListeners = function() {
+        return activeListeners;
     }
        
     /**
@@ -151,75 +221,64 @@ function DrawOnAMap(elemId, options)
     this.isActive = function() {
        return beingDragged;
     }
+
+    /**
+     * Return the points array
+     *
+     * @access public
+     */
+    this.getPoints = function() {
+        return points;
+    }
+
+    /**
+     * Return the map bounds
+     *
+     * @access public
+     */
+    this.getBounds = function() {
+        return bounds;
+    }
+
+    /**
+     * Empty function which can be overriden.
+     *
+     * @access public
+     */
+    this.onComplete = function() {}
+
+    /**
+     * Empty function which can be overriden.
+     *
+     * @access public
+     */
+    this.onReset = function() {}
+
+    /**
+     * Empty function which can be overriden.
+     *
+     * @access public
+     */
+    this.onDraw = function() {}
+
+    /**
+     * Method used to check if a point is inside the drawn area
+     *
+     * @access public
+     */
+    this.containsPoint = function(point) {
+        //return this.getBounds().contains(point);
+        return google.maps.geometry.poly.containsLocation(point, trace);
+    }
    
     // --------------------------- Private Methods -------------------------- //
-   
-    /**
-     * Class constructor
-     *
-     * @access private
-     */    
-    function _construct() {
-        // Initialise public options
-        plugin.options = _extend({}, defaults, options);
-       
-        // Get the element
-        var elem = document.getElementById(elemId);
-        
-        // Test for element
-        if (elem === null) {
-           throw new Error('Unable to find element with id of: ' + elemId);
-        }
-       
-        // Set element
-        plugin.elem = elem;
-
-        // Attempt to load the map state from the URL
-        var getparams = _getUrlVars();
-        if (getparams.length == 4) {
-                
-            // Create new map and set draggable mode
-            _createMap(true);
-                
-            // Get map params from url
-            var zoom = parseInt(getparams['zoom']);
-            var center = new google.maps.LatLng(
-                getparams['centerY'], 
-                getparams['centerX']
-            );
-                
-            var points_string = _decode(getparams['points']);
-            var points_array = points_string.split(';');
-            for(var i = 0; i < points_array.length; i++) {
-                var coords = points_array[i].split(',');
-                var lat = coords[0];
-                var lng = coords[1];
-                _placeMarker(
-                    new google.maps.LatLng(
-                        lat, 
-                        lng
-                    )
-                );
-            }
-                
-            // Add first marker and redraw map
-            _placeMarker(points[0]);
-            
-            // Set map zoom and center
-            plugin.map.setCenter(center);
-            plugin.map.setZoom(zoom);
-        } else {
-            // Create a new map
-            _createMap(false);
-        }
-    }
        
     /**
      * Drag end listener
      *
      * @access private
      */
-    function _addDragEndListener() {   
+    function _addDragEndListener() {
         // Add draggable event listener
         if (_contains(activeListeners, 'dragend') === false) {
             google.maps.event.addListener(plugin.map, 'dragend', function() {
@@ -236,19 +295,25 @@ function DrawOnAMap(elemId, options)
      */
     function _addMouseDownListener() {   
         // Add mouse down event handler
-        google.maps.event.addListener(plugin.map, 'mousedown', function(event) {
+        if (_contains(activeListeners, 'mousedown') === false) {
+            google.maps.event.addListener(plugin.map, 'mousedown', function(event) {
 
-            // Unset any previous lines
-            _clearOverlays();
-            points = [];
+                // Unset any previous lines
+                _clearOverlays();
+                points = [];
 
-            // Record the fact that the line is being drawn
-            plugin.setActiveMode();
+                // Record the fact that the line is being drawn
+                plugin.setActiveMode();
 
-            // Place a marker at the start point
-            _placeMarker(event.latLng);
-        
-        });
+                // Place a marker at the start point
+                _placeMarker(event.latLng);
+                
+                // Add the mouse move listener
+                _addMouseMoveListener();
+            
+            });
+            activeListeners.push('mousedown');
+        }
    }
 
     /**
@@ -258,29 +323,23 @@ function DrawOnAMap(elemId, options)
      */
     function _addMouseMoveListener() {
         if (_contains(activeListeners, 'mousemove') === false) {
-	       	google.maps.event.addListener(plugin.map, 'mousemove', function(event) {
-		        // Check that the mouse is being dragged, otherwise the
-		        // mouse is just passing over the map
-		        if (plugin.isActive()) {
+           	google.maps.event.addListener(plugin.map, 'mousemove', function(event) {
+                // Calculate the distance between the previous marker
+                // and the co-ordinates currentlly underneath the mouse
+                var distance = google.maps.geometry.spherical.computeDistanceBetween(
+                    event.latLng,
+                    lastMarker
+                );
 
-		            // Calculate the distance between the previous marker
-		            // and the co-ordinates currentlly underneath the mouse
-		            var distance = google.maps.geometry.spherical.computeDistanceBetween(
-		                event.latLng,
-		                lastMarker
-		            );
-
-		            // If the distance is greater than the threshold
-		            // amount, drop a new marker
-		            if (distance > plugin.options.distanceBetweenMarkers) {
-		                _placeMarker(event.latLng);
-		            }
-		        }
-		    });
+                // If the distance is greater than the threshold
+                // amount, drop a new marker
+                if (distance > plugin.options.distanceBetweenMarkers) {
+                    _placeMarker(event.latLng);
+                }
+	        });
             activeListeners.push('mousemove');
         }
-    }
-       
+    }       
        
     /**
      * Mouse up listener
@@ -294,8 +353,8 @@ function DrawOnAMap(elemId, options)
             // Record the fact that the line is no longer being drawn
             plugin.unSetActiveMode();
 
-            // Save map state to url
-            _saveMapState();
+            // Remove 
+            _removeListener('mousemove');
 
             // Add the start point to the array of points - in order to
             // close up the polygon
@@ -486,6 +545,9 @@ function DrawOnAMap(elemId, options)
         // Remove any previous lines
         _clearOverlays();
 
+        // Call empty draw function
+        plugin.onDraw();
+
         // Draw the line/polygon
         if (points[0] == points[points.length-1] && points.length > 2) {
             // The trace has been completed, so display a polygon
@@ -499,6 +561,9 @@ function DrawOnAMap(elemId, options)
                                  // consumes the 'mouseup' event if the mouse is
                                  // over the line when the mouse button is released
             });
+
+            // Call the complete function
+            plugin.onComplete();
         } else {
             // The trace hasn't been completed yet, so display a line
             trace = new google.maps.Polyline({
@@ -532,201 +597,28 @@ function DrawOnAMap(elemId, options)
     }
 
     /**
-     * Get the base url of the page
-     * 
-     * @access private
-     */
-    function _getBaseUrl() {
-        return document.location.toString().substr(
-            0,
-            document.location.toString().indexOf('#')
-        );
-    }
-
-    /**
-     * Return a comma separated string of the marker points
+     * Get all of the get parameters from local storage
      *
      * @access private
      */
-    function _getPointsAsString() {
-        var searchstring = ''
-        for (i in points) {
-            if (points[i].lat() != 'NaN' || points[i].lng() != 'NaN') {
-                var lat = Number(points[i].lat()).toFixed(4);
-                var lng = Number(points[i].lng()).toFixed(4);
-                searchstring += lat
-                    + ',' + lng + ';';
+    function _getLocalStorage() {
+        var vars = {};
+        if (plugin.persistMap === true) {
+            if (typeof Storage !== 'undefined') {
+                if (window.localStorage.getItem('DrawOnAMap:Points') !== null) {
+                    vars.points = window.localStorage.getItem('DrawOnAMap:Points');
+                    vars.zoom = window.localStorage.getItem('DrawOnAMap:zoom');
+                    vars.centerX = window.localStorage.getItem('DrawOnAMap:center:x');
+                    vars.centerY = window.localStorage.getItem('DrawOnAMap:center:y');
+                }
+            } else {
+                throw new Error(
+                    'Unable to persist! Local Storage is not available.'
+                );
             }
-        }
-            
-        // Remove last comma
-        searchstring = searchstring.substring(
-            0, 
-            searchstring.length - 1
-        );
-            
-        return searchstring;
-    }
-
-    /**
-     * Get all of the get parameters from the url
-     *
-     * @access private
-     */
-    function _getUrlVars() {
-        var vars = [], hash;
-        var hashes = window.location.href.slice(window.location.href.indexOf('?') + 1).split('&');
-        for(var i = 0; i < hashes.length; i++) {
-            hash = hashes[i].split('=');
-            vars.push(hash[0]);
-            vars[hash[0]] = hash[1];
         }
         return vars;
     }
-
-    /**
-     * Get a single get parameter from a url
-     *
-     * @param string name
-     *
-     * @access private
-     */
-    function _getUrlVar(name) {
-        return getUrlVars()[name];
-    }
-
-	/**
-     * Base64 encode function
-     * 
-     * @param string input
-     * 
-     * @access private
-     */
-	function _encode(input) {
-        var output = "";
-        var chr1, chr2, chr3, enc1, enc2, enc3, enc4;
-        var i = 0;
-        input = _utf8_encode(input);
-        while (i < input.length) {
-            chr1 = input.charCodeAt(i++);
-            chr2 = input.charCodeAt(i++);
-            chr3 = input.charCodeAt(i++);
-
-            enc1 = chr1 >> 2;
-            enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
-            enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
-            enc4 = chr3 & 63;
-
-            if (isNaN(chr2)) {
-                enc3 = enc4 = 64;
-            } else if (isNaN(chr3)) {
-                enc4 = 64;
-            }
-
-            output = output +
-            _allowedChars.charAt(enc1) + _allowedChars.charAt(enc2) +
-            _allowedChars.charAt(enc3) + _allowedChars.charAt(enc4);
-        }
-
-        return output;
-	}
- 
-	/**
-     * Base64 decode function
-     * 
-     * @param string input
-     * 
-     * @access private
-     */
-	function _decode(input) {
-        var output = "";
-        var chr1, chr2, chr3;
-        var enc1, enc2, enc3, enc4;
-        var i = 0;
-
-        input = input.replace(/[^A-Za-z0-9\+\/\=]/g, "");
- 
-        while (i < input.length) {
-            enc1 = _allowedChars.indexOf(input.charAt(i++));
-            enc2 = _allowedChars.indexOf(input.charAt(i++));
-            enc3 = _allowedChars.indexOf(input.charAt(i++));
-            enc4 = _allowedChars.indexOf(input.charAt(i++));
-                
-            chr1 = (enc1 << 2) | (enc2 >> 4);
-            chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
-            chr3 = ((enc3 & 3) << 6) | enc4;
-
-            output = output + String.fromCharCode(chr1);
-
-            if (enc3 != 64) {
-                output = output + String.fromCharCode(chr2);
-            }
-            if (enc4 != 64) {
-                output = output + String.fromCharCode(chr3);
-            }
-        }
-        output = _utf8_decode(output);
-        return output;
-	}
-
-    /**
-     * private method for UTF-8 encoding
-     *
-     * @param string string
-     *
-     * @access private
-     */
-    function _utf8_encode(string) {
-        string = string.replace(/\r\n/g,"\n");
-        var utftext = "";
-        for (var n = 0; n < string.length; n++) {
-            var c = string.charCodeAt(n);
-            if (c < 128) {
-                utftext += String.fromCharCode(c);
-            } else if((c > 127) && (c < 2048)) {
-                utftext += String.fromCharCode((c >> 6) | 192);
-                utftext += String.fromCharCode((c & 63) | 128);
-            } else {
-                utftext += String.fromCharCode((c >> 12) | 224);
-                utftext += String.fromCharCode(((c >> 6) & 63) | 128);
-                utftext += String.fromCharCode((c & 63) | 128);
-            }
-        }
-        return utftext;
-    }
-
-
-    /**
-     * Private method for UTF-8 decoding
-     *
-     * @param string utftext
-     *
-     * @access private
-     */
-    function _utf8_decode(utftext) {
-        var string = "";
-        var i = 0;
-        var c = c1 = c2 = 0;
-        while ( i < utftext.length ) {
-            c = utftext.charCodeAt(i);
-
-            if (c < 128) {
-                string += String.fromCharCode(c);
-                i++;
-            } else if((c > 191) && (c < 224)) {
-                c2 = utftext.charCodeAt(i+1);
-                string += String.fromCharCode(((c & 31) << 6) | (c2 & 63));
-                i += 2;
-            } else {
-                c2 = utftext.charCodeAt(i+1);
-                c3 = utftext.charCodeAt(i+2);
-                string += String.fromCharCode(((c & 15) << 12) | ((c2 & 63) << 6) | (c3 & 63));
-                i += 3;
-            }
-        }
-        return string;
-    }
-
 
     /**
      * Add a marker into the global points array
@@ -738,6 +630,7 @@ function DrawOnAMap(elemId, options)
     function _placeMarker(location) {
         lastMarker = location;
         points.push(location);
+        bounds.extend(location);
         _drawLine();
     }
        
@@ -760,22 +653,19 @@ function DrawOnAMap(elemId, options)
      */
     function _saveMapState() {
         if (plugin.persistMap === true) {
-            // Get the base url of the page
-            var baseurl = _getBaseUrl();
-           
-            // Start creating the string for the url hashbang
-            var pointsString = _getPointsAsString();
-
-            // Base64 encode the points
-            pointsString = _encode(pointsString).replace('/=/g', '%3D');
-           
-            // Store the map position in the URL
-            document.location = baseurl + '#?zoom=' + plugin.map.getZoom() +
-                '&centerX=' + plugin.map.getCenter().lng() + '&centerY=' +
-                plugin.map.getCenter().lat() + '&points=' + pointsString;
+            if (typeof Storage !== 'undefined' && typeof JSON !== 'undefined') {
+                var mapPoints = JSON.stringify(points);
+                window.localStorage.setItem('DrawOnAMap:Points', mapPoints);
+                window.localStorage.setItem('DrawOnAMap:zoom', plugin.map.getZoom());
+                window.localStorage.setItem('DrawOnAMap:center:x', plugin.map.getCenter().lng());
+                window.localStorage.setItem('DrawOnAMap:center:y', plugin.map.getCenter().lat());
+            } else {
+                throw new Error(
+                    'Unable to persist! Local Storage is not available.'
+                );
+            }
         }
     }
-
    
    /**
     * Turn dragable state on/off
@@ -789,7 +679,6 @@ function DrawOnAMap(elemId, options)
         if(!draggable) {
             _removeListener('zoom_changed');
             _removeListener('drag_end');
-            _addMouseMoveListener();
             _addMouseDownListener();
             _addMouseUpListener();
             controls['Drag'].controlUI.innerHTML = 'Drag';
@@ -807,7 +696,4 @@ function DrawOnAMap(elemId, options)
             draggable: draggable
         });
     }
-   
-    // Call constructor
-    _construct();
 }
