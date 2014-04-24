@@ -11,6 +11,15 @@
         }
         #doam {
             min-height: 100%;
+        }        
+        .dysMapControl {
+            padding: 10px;
+            margin: 10px;
+            background: #FFF;
+            box-shadow: 0px 0px 5px #888;
+            cursor: pointer;
+            width: 100px;
+            text-align: center;
         }
     </style>
 </head>
@@ -32,6 +41,7 @@
             mapMarkers = [];
 
             jQuery.getJSON('pubs.json', function(json) {
+                var found = 0;
                 jQuery.each(json, function(i, v) {
                     var latlng = new google.maps.LatLng(
                         v.pub.lat,
@@ -45,8 +55,13 @@
                                 title: 'Pub!'
                             })
                         );
+                        found++;
                     } 
-                });
+                })
+                
+                if (found == 0) {
+                    alert('No pubs found :(');
+                }
             });
         }
 
