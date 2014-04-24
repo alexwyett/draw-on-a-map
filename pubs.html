@@ -33,13 +33,13 @@
         doam.persistMap = true;
 
         var mapMarkers = [];
-        doam.onComplete = function() {
-
+        doam.onDraw = function() {
             for (var i = 0; i < mapMarkers.length; i++) {
                 mapMarkers[i].setMap(null);
             }
             mapMarkers = [];
-
+        }
+        doam.onComplete = function() {
             jQuery.getJSON('pubs.json', function(json) {
                 var found = 0;
                 jQuery.each(json, function(i, v) {
