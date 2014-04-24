@@ -163,7 +163,7 @@ function DrawOnAMap(elemId, options)
         window.localStorage.removeItem('DrawOnAMap:center:y');
 
         bounds = new google.maps.LatLngBounds();
-        points = null;
+        points = [];
         trace = null;
 
         // Call empty reset function
@@ -241,24 +241,12 @@ function DrawOnAMap(elemId, options)
     }
 
     /**
-     * Empty function which can be overriden.
+     * Empty functions which can be overriden.
      *
      * @access public
      */
     this.onComplete = function() {}
-
-    /**
-     * Empty function which can be overriden.
-     *
-     * @access public
-     */
     this.onReset = function() {}
-
-    /**
-     * Empty function which can be overriden.
-     *
-     * @access public
-     */
     this.onDraw = function() {}
 
     /**
@@ -267,7 +255,6 @@ function DrawOnAMap(elemId, options)
      * @access public
      */
     this.containsPoint = function(point) {
-        //return this.getBounds().contains(point);
         return google.maps.geometry.poly.containsLocation(point, trace);
     }
    
@@ -323,7 +310,7 @@ function DrawOnAMap(elemId, options)
      */
     function _addMouseMoveListener() {
         if (_contains(activeListeners, 'mousemove') === false) {
-           	google.maps.event.addListener(plugin.map, 'mousemove', function(event) {
+            google.maps.event.addListener(plugin.map, 'mousemove', function(event) {
                 // Calculate the distance between the previous marker
                 // and the co-ordinates currentlly underneath the mouse
                 var distance = google.maps.geometry.spherical.computeDistanceBetween(
@@ -336,7 +323,7 @@ function DrawOnAMap(elemId, options)
                 if (distance > plugin.options.distanceBetweenMarkers) {
                     _placeMarker(event.latLng);
                 }
-	        });
+            });
             activeListeners.push('mousemove');
         }
     }       
@@ -353,7 +340,7 @@ function DrawOnAMap(elemId, options)
             // Record the fact that the line is no longer being drawn
             plugin.unSetActiveMode();
 
-            // Remove 
+            // Remove mouse move listener
             _removeListener('mousemove');
 
             // Add the start point to the array of points - in order to
@@ -381,23 +368,23 @@ function DrawOnAMap(elemId, options)
         });
     }
 
-	/**
-	 * Zoom changed listener
+    /**
+     * Zoom changed listener
      *
      * @access private
-	 */
-	function _addZoomChangedListener() {
-	    // Add zoom change event listener
-	    if (_contains(activeListeners, 'zoom_changed') === false) {
-		    google.maps.event.addListener(plugin.map, 'zoom_changed', function() {
-		        if (plugin.isActive()) {
-		            plugin.unSetActiveMode();
-		        }
-		        _saveMapState();
-		    });
-		    activeListeners.push('zoom_changed');
-	    }
-	}
+     */
+    function _addZoomChangedListener() {
+        // Add zoom change event listener
+        if (_contains(activeListeners, 'zoom_changed') === false) {
+            google.maps.event.addListener(plugin.map, 'zoom_changed', function() {
+                if (plugin.isActive()) {
+                    plugin.unSetActiveMode();
+                }
+                _saveMapState();
+            });
+            activeListeners.push('zoom_changed');
+        }
+    }
 
 
     /**
@@ -406,19 +393,29 @@ function DrawOnAMap(elemId, options)
      * @access private
      */
     function _addControls() {
+        
+        // Set CSS styles for the DIV containing the control
+        // Setting padding to 5 px will offset the control
+        // from the edge of the map
+        var container = document.createElement('div');
+        container.index = 1;
+        container.className = 'dysMapControlContainer';
+        
         // Add in controls to map
         for(i in controls) {
             // Setup the click event listeners
             google.maps.event.addDomListener(
-                controls[i].controlUI,
+                controls[i].control,
                 'click',
                 controls[i].func
             );
-           
-            plugin.map.controls[google.maps.ControlPosition.TOP_RIGHT].push(
-                controls[i].control
-            );
+    
+            container.appendChild(controls[i].control);
         }
+           
+        plugin.map.controls[google.maps.ControlPosition.TOP_RIGHT].push(
+            container
+        );
     }
        
     /**
@@ -508,22 +505,18 @@ function DrawOnAMap(elemId, options)
      * @access private
      */
     function _createControl(label, func) {
-        // Set CSS styles for the DIV containing the control
-        // Setting padding to 5 px will offset the control
-        // from the edge of the map
+        
+        // Create container div
         var controlDiv = document.createElement('div');
-        controlDiv.index = 1;
         controlDiv.className = 'dysMapControl';
 
         // Set CSS for the control border
-        var controlUI = document.createElement('div');
-        controlUI.style.cursor = 'pointer';
-        controlUI.style.textAlign = 'center';
+        var controlUI = document.createElement('a');
         controlUI.className = 'dysMapControlInner';
         controlDiv.appendChild(controlUI);
 
         // Set CSS for the control interior
-        var controlText = document.createElement('div');
+        var controlText = document.createElement('span');
         controlText.innerHTML = label;
         controlText.className = 'dysMapControlLabel';
         controlUI.appendChild(controlText);
