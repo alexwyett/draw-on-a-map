@@ -64,13 +64,6 @@ function DrawOnAMap(elemId, options)
      * @access private
      */
     var beingDragged = false;
-
-    /**
-     * Set to true if the drawn area is to be persisted on page reload
-     * 
-     * @access public
-     */
-    var persistMap = false;
    
     /**
      * Class objects
@@ -288,6 +281,7 @@ function DrawOnAMap(elemId, options)
                 // Unset any previous lines
                 _clearOverlays();
                 points = [];
+                bounds = new google.maps.LatLngBounds();
 
                 // Record the fact that the line is being drawn
                 plugin.setActiveMode();
