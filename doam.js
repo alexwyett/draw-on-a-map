@@ -35,7 +35,17 @@ function DrawOnAMap(elemId, options)
             streetViewControl:  false,
             overviewMapControl: false,
             rotateControl:      false,
-            mapTypeId:          google.maps.MapTypeId.ROADMAP
+            mapTypeId:          google.maps.MapTypeId.ROADMAP,
+            styles: [
+                {
+                    featureType: 'poi',
+                    'stylers': [
+                        {
+                            visibility: 'off'
+                        }
+                    ]
+                }
+            ]
         }
     };
    
@@ -78,9 +88,11 @@ function DrawOnAMap(elemId, options)
     /**
      * Class constructor
      *
+     * @param function callback Callback function
+     *
      * @access public
      */    
-    this.init = function() {
+    this.init = function(callback) {
         // Initialise public options
         plugin.options = _extend({}, defaults, options);
        
@@ -134,6 +146,11 @@ function DrawOnAMap(elemId, options)
         } else {
             // Create a new map
             _createMap(false);
+        }
+        
+        // Call empty loader function if provided
+        if (typeof callback === 'function') {
+            callback();
         }
     }
 
