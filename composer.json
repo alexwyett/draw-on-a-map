@@ -1,0 +1,8 @@
+{
+    "name": "aw/draw-on-a-map",
+    "type": "library",
+    "description": "JavaScript Utility for drawing on a map",
+    "keywords": ["googlemaps", "javascript"],
+    "homepage": "http://github.com/alexwyett/draw-on-a-map",
+    "license": "MIT"
+}
