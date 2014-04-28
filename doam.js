@@ -258,6 +258,7 @@ function DrawOnAMap(elemId, options)
     this.onComplete = function() {}
     this.onReset = function() {}
     this.onDraw = function() {}
+    this.onSaveState = function() {}
 
     /**
      * Method used to check if a point is inside the drawn area
@@ -669,6 +670,9 @@ function DrawOnAMap(elemId, options)
                 );
             }
         }
+        
+        // Call save state function
+        plugin.onSaveState();
     }
    
    /**
