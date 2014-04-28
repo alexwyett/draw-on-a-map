@@ -22,7 +22,8 @@ function DrawOnAMap(elemId, options)
      */
     var defaults = {
         distanceBetweenMarkers: 1000,
-        lineColor: '#FF0000',
+        strokeColor: '#FF0000',
+        strokeWeight: 2,
         fillColor: '#FF0000',
         fillOpacity: 0.2,
         mapOptions: {
@@ -558,10 +559,10 @@ function DrawOnAMap(elemId, options)
             // The trace has been completed, so display a polygon
             trace = new google.maps.Polygon({
                 path: points,
-                strokeColor: plugin.options.lineColor,
+                strokeColor: plugin.options.strokeColor,
                 fillColor: plugin.options.fillColor,
                 fillOpacity: plugin.options.fillOpacity,
-                strokeWeight: 2,
+                strokeWeight: plugin.options.strokeWeight,
                 clickable: false // This needs to be false, otherwise the line
                                  // consumes the 'mouseup' event if the mouse is
                                  // over the line when the mouse button is released
@@ -573,8 +574,8 @@ function DrawOnAMap(elemId, options)
             // The trace hasn't been completed yet, so display a line
             trace = new google.maps.Polyline({
                 path: points,
-                strokeColor: plugin.options.lineColor,
-                strokeWeight: 2,
+                strokeColor: plugin.options.strokeColor,
+                strokeWeight: plugin.options.strokeWeight,
                 clickable: false // This needs to be false, otherwise the line
                                  // consumes the 'mouseup' event if the mouse is
                                  // over the line when the mouse button is released
