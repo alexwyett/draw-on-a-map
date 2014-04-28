@@ -260,6 +260,8 @@ function DrawOnAMap(elemId, options)
     this.onReset = function() {}
     this.onDraw = function() {}
     this.onSaveState = function() {}
+    this.onZoom = function() {}
+    this.onIdle = function() {}
 
     /**
      * Method used to check if a point is inside the drawn area
@@ -277,13 +279,14 @@ function DrawOnAMap(elemId, options)
      *
      * @access private
      */
-    function _addDragEndListener() {
+    function _addIdleListener() {
         // Add draggable event listener
-        if (_contains(activeListeners, 'dragend') === false) {
-            google.maps.event.addListener(plugin.map, 'dragend', function() {
+        if (_contains(activeListeners, 'idle') === false) {
+            google.maps.event.addListener(plugin.map, 'idle', function() {
                  _saveMapState();
+                 plugin.onIdle();
             });
-            activeListeners.push('dragend');
+            activeListeners.push('idle');
         }
     }
        
@@ -390,10 +393,15 @@ function DrawOnAMap(elemId, options)
         // Add zoom change event listener
         if (_contains(activeListeners, 'zoom_changed') === false) {
             google.maps.event.addListener(plugin.map, 'zoom_changed', function() {
+                // Call zoomStart for custom functions
+                plugin.onZoom();
+                
+                // Unset active mode
                 if (plugin.isActive()) {
                     plugin.unSetActiveMode();
                 }
-                _saveMapState();
+                
+                // Saving zoom level is handled by the idle listener
             });
             activeListeners.push('zoom_changed');
         }
@@ -687,7 +695,7 @@ function DrawOnAMap(elemId, options)
         // Add draw controls if not in drag mode
         if(!draggable) {
             _removeListener('zoom_changed');
-            _removeListener('drag_end');
+            _removeListener('idle');
             _addMouseDownListener();
             _addMouseUpListener();
             controls['Drag'].controlUI.innerHTML = 'Drag';
@@ -696,7 +704,7 @@ function DrawOnAMap(elemId, options)
             _removeListener('mousedown');
             _removeListener('mouseup');
             _addZoomChangedListener();
-            _addDragEndListener();
+            _addIdleListener();
             controls['Drag'].controlUI.innerHTML = 'Draw';
         }
            
