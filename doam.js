@@ -22,7 +22,8 @@ function DrawOnAMap(elemId, options)
      */
     var defaults = {
         distanceBetweenMarkers: 1000,
-        lineColor: '#FF0000',
+        strokeColor: '#FF0000',
+        strokeWeight: 2,
         fillColor: '#FF0000',
         fillOpacity: 0.2,
         mapOptions: {
@@ -35,7 +36,17 @@ function DrawOnAMap(elemId, options)
             streetViewControl:  false,
             overviewMapControl: false,
             rotateControl:      false,
-            mapTypeId:          google.maps.MapTypeId.ROADMAP
+            mapTypeId:          google.maps.MapTypeId.ROADMAP,
+            styles: [
+                {
+                    featureType: 'poi',
+                    'stylers': [
+                        {
+                            visibility: 'off'
+                        }
+                    ]
+                }
+            ]
         }
     };
    
@@ -78,9 +89,11 @@ function DrawOnAMap(elemId, options)
     /**
      * Class constructor
      *
+     * @param function callback Callback function
+     *
      * @access public
      */    
-    this.init = function() {
+    this.init = function(callback) {
         // Initialise public options
         plugin.options = _extend({}, defaults, options);
        
@@ -134,6 +147,11 @@ function DrawOnAMap(elemId, options)
         } else {
             // Create a new map
             _createMap(false);
+        }
+        
+        // Call empty loader function if provided
+        if (typeof callback === 'function') {
+            callback();
         }
     }
 
@@ -241,6 +259,9 @@ function DrawOnAMap(elemId, options)
     this.onComplete = function() {}
     this.onReset = function() {}
     this.onDraw = function() {}
+    this.onSaveState = function() {}
+    this.onZoom = function() {}
+    this.onIdle = function() {}
 
     /**
      * Method used to check if a point is inside the drawn area
@@ -258,13 +279,14 @@ function DrawOnAMap(elemId, options)
      *
      * @access private
      */
-    function _addDragEndListener() {
+    function _addIdleListener() {
         // Add draggable event listener
-        if (_contains(activeListeners, 'dragend') === false) {
-            google.maps.event.addListener(plugin.map, 'dragend', function() {
+        if (_contains(activeListeners, 'idle') === false) {
+            google.maps.event.addListener(plugin.map, 'idle', function() {
                  _saveMapState();
+                 plugin.onIdle();
             });
-            activeListeners.push('dragend');
+            activeListeners.push('idle');
         }
     }
        
@@ -371,10 +393,15 @@ function DrawOnAMap(elemId, options)
         // Add zoom change event listener
         if (_contains(activeListeners, 'zoom_changed') === false) {
             google.maps.event.addListener(plugin.map, 'zoom_changed', function() {
+                // Call zoomStart for custom functions
+                plugin.onZoom();
+                
+                // Unset active mode
                 if (plugin.isActive()) {
                     plugin.unSetActiveMode();
                 }
-                _saveMapState();
+                
+                // Saving zoom level is handled by the idle listener
             });
             activeListeners.push('zoom_changed');
         }
@@ -540,10 +567,10 @@ function DrawOnAMap(elemId, options)
             // The trace has been completed, so display a polygon
             trace = new google.maps.Polygon({
                 path: points,
-                strokeColor: plugin.options.lineColor,
+                strokeColor: plugin.options.strokeColor,
                 fillColor: plugin.options.fillColor,
                 fillOpacity: plugin.options.fillOpacity,
-                strokeWeight: 2,
+                strokeWeight: plugin.options.strokeWeight,
                 clickable: false // This needs to be false, otherwise the line
                                  // consumes the 'mouseup' event if the mouse is
                                  // over the line when the mouse button is released
@@ -555,8 +582,8 @@ function DrawOnAMap(elemId, options)
             // The trace hasn't been completed yet, so display a line
             trace = new google.maps.Polyline({
                 path: points,
-                strokeColor: plugin.options.lineColor,
-                strokeWeight: 2,
+                strokeColor: plugin.options.strokeColor,
+                strokeWeight: plugin.options.strokeWeight,
                 clickable: false // This needs to be false, otherwise the line
                                  // consumes the 'mouseup' event if the mouse is
                                  // over the line when the mouse button is released
@@ -652,6 +679,9 @@ function DrawOnAMap(elemId, options)
                 );
             }
         }
+        
+        // Call save state function
+        plugin.onSaveState();
     }
    
    /**
@@ -665,7 +695,7 @@ function DrawOnAMap(elemId, options)
         // Add draw controls if not in drag mode
         if(!draggable) {
             _removeListener('zoom_changed');
-            _removeListener('drag_end');
+            _removeListener('idle');
             _addMouseDownListener();
             _addMouseUpListener();
             controls['Drag'].controlUI.innerHTML = 'Drag';
@@ -674,7 +704,7 @@ function DrawOnAMap(elemId, options)
             _removeListener('mousedown');
             _removeListener('mouseup');
             _addZoomChangedListener();
-            _addDragEndListener();
+            _addIdleListener();
             controls['Drag'].controlUI.innerHTML = 'Draw';
         }
            
