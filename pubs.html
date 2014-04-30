@@ -2,6 +2,7 @@
 <html lang="en-US">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=0, user-scalable=0">
     <title></title>
    
     <style>
@@ -30,7 +31,16 @@
     <script src="doam.js"></script>
     <script>
         var doam = new DrawOnAMap('doam');
-        doam.persistMap = true;
+        
+        /** Mobile experiment **/
+        var obj = document.getElementById('doam');
+        obj.addEventListener('touchmove', function(event) {
+            if (doam.isActive()) {
+                event.preventDefault();
+                google.maps.event.trigger(doam.getMap(), 'mousemove');
+            }
+        }, false);
+        /** End **/
 
         var mapMarkers = [];
         doam.onDraw = function() {
@@ -38,6 +48,7 @@
                 mapMarkers[i].setMap(null);
             }
             mapMarkers = [];
+            obj.removeEventListener('touchmove');
         }
         doam.onComplete = function() {
             jQuery.getJSON('pubs.json', function(json) {
@@ -63,7 +74,7 @@
                     alert('No pubs found :(');
                 }
             });
-        }
+        }        
 
         doam.init();
     </script>
