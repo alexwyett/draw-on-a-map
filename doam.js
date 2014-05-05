@@ -1,4 +1,85 @@
 /**
+ * Object used for map searching
+ * 
+ * @type object
+ */
+function MapSearch()
+{
+    /**
+     * Default google map options
+     * 
+     * @type object
+     */
+    var defaultMapOptions = {
+        center:             new google.maps.LatLng(55.55, -2.06),
+        zoom:               6,
+        panControl:         false,
+        zoomControl:        true,
+        mapTypeControl:     false,
+        scaleControl:       false,
+        streetViewControl:  false,
+        overviewMapControl: false,
+        rotateControl:      false,
+        mapTypeId:          google.maps.MapTypeId.ROADMAP,
+        styles: [
+            {
+                featureType: 'poi',
+                'stylers': [
+                    {
+                        visibility: 'off'
+                    }
+                ]
+            }
+        ]
+    };
+    
+    /**
+     * Return the default map options
+     * 
+     * @returns object
+     */
+    this.getDefaultMapOptions = function() {
+        return defaultMapOptions;
+    };
+    
+    /**
+     * Extend the options of the class
+     * 
+     * @access public
+     *
+     * @return array
+     */
+    this.extend = function() {
+        for(var i=1; i<arguments.length; i++) {
+            for(var key in arguments[i]) {
+                if(arguments[i].hasOwnProperty(key)) {
+                    arguments[0][key] = arguments[i][key];
+                }
+            }
+        }
+        return arguments[0];
+    };
+    
+    /**
+     * Array contains function
+     *
+     * @param Array  a   comparison array
+     * @param Object obj comparison object
+     *
+     * @access public
+     */
+    this.contains = function(a, obj) {
+        var i = a.length;
+        while (i--) {
+            if (a[i] === obj) {
+                return true;
+            }
+        }
+        return false;
+    };
+}
+
+/**
  * Draw On a Map Google Maps Javascript library.
  *
  * Script should be initialised like this:
@@ -25,29 +106,7 @@ function DrawOnAMap(elemId, options)
         strokeColor: '#FF0000',
         strokeWeight: 2,
         fillColor: '#FF0000',
-        fillOpacity: 0.2,
-        mapOptions: {
-            center:             new google.maps.LatLng(55.55, -2.06),
-            zoom:               6,
-            panControl:         false,
-            zoomControl:        true,
-            mapTypeControl:     false,
-            scaleControl:       false,
-            streetViewControl:  false,
-            overviewMapControl: false,
-            rotateControl:      false,
-            mapTypeId:          google.maps.MapTypeId.ROADMAP,
-            styles: [
-                {
-                    featureType: 'poi',
-                    'stylers': [
-                        {
-                            visibility: 'off'
-                        }
-                    ]
-                }
-            ]
-        }
+        fillOpacity: 0.2
     };
    
     /**
@@ -94,8 +153,12 @@ function DrawOnAMap(elemId, options)
      * @access public
      */    
     this.init = function(callback) {
+        
+        // Merge map defaults with line defaults
+        defaults.mapOptions = plugin.getDefaultMapOptions();
+        
         // Initialise public options
-        plugin.options = _extend({}, defaults, options);
+        plugin.options = plugin.extend({}, defaults, options);
        
         // Get the element
         var elem = document.getElementById(elemId);
@@ -153,7 +216,7 @@ function DrawOnAMap(elemId, options)
         if (typeof callback === 'function') {
             callback();
         }
-    }
+    };
 
     /**
      * Resets the map
@@ -179,7 +242,7 @@ function DrawOnAMap(elemId, options)
 
         // Call empty reset function
         this.onReset();
-    }
+    };
 
     /**
      * Get the draggable state
@@ -188,7 +251,7 @@ function DrawOnAMap(elemId, options)
      */
     this.isDraggable = function() {
         return plugin.map.draggable;
-    }
+    };
 
     /**
      * Return the map object
@@ -197,14 +260,14 @@ function DrawOnAMap(elemId, options)
      */
     this.getMap = function() {
         return this.map;
-    }
+    };
 
     /**
      * @access public
      */
     this.getActiveListeners = function() {
         return activeListeners;
-    }
+    };
        
     /**
      * Set the draggable set
@@ -213,7 +276,7 @@ function DrawOnAMap(elemId, options)
      */
     this.setActiveMode = function() {
         beingDragged = true;
-    }
+    };
    
     /**
      * Unset the draggable set
@@ -222,7 +285,7 @@ function DrawOnAMap(elemId, options)
      */
     this.unSetActiveMode = function() {
         beingDragged = false;
-    }
+    };
    
     /**
      * Get the draggable state
@@ -231,7 +294,7 @@ function DrawOnAMap(elemId, options)
      */
     this.isActive = function() {
        return beingDragged;
-    }
+    };
 
     /**
      * Return the points array
@@ -240,7 +303,7 @@ function DrawOnAMap(elemId, options)
      */
     this.getPoints = function() {
         return points;
-    }
+    };
 
     /**
      * Return the map bounds
@@ -249,28 +312,30 @@ function DrawOnAMap(elemId, options)
      */
     this.getBounds = function() {
         return bounds;
-    }
+    };
 
     /**
      * Empty functions which can be overriden.
      *
      * @access public
      */
-    this.onComplete = function() {}
-    this.onReset = function() {}
-    this.onDraw = function() {}
-    this.onSaveState = function() {}
-    this.onZoom = function() {}
-    this.onIdle = function() {}
+    this.onComplete = function() {};
+    this.onReset = function() {};
+    this.onDraw = function() {};
+    this.onSaveState = function() {};
+    this.onZoom = function() {};
+    this.onIdle = function() {};
 
     /**
      * Method used to check if a point is inside the drawn area
+     *
+     * @param LatLng point Google latlng object
      *
      * @access public
      */
     this.containsPoint = function(point) {
         return google.maps.geometry.poly.containsLocation(point, trace);
-    }
+    };
    
     // --------------------------- Private Methods -------------------------- //
        
@@ -281,7 +346,7 @@ function DrawOnAMap(elemId, options)
      */
     function _addIdleListener() {
         // Add draggable event listener
-        if (_contains(activeListeners, 'idle') === false) {
+        if (plugin.contains(activeListeners, 'idle') === false) {
             google.maps.event.addListener(plugin.map, 'idle', function() {
                  _saveMapState();
                  plugin.onIdle();
@@ -297,7 +362,7 @@ function DrawOnAMap(elemId, options)
      */
     function _addMouseDownListener() {   
         // Add mouse down event handler
-        if (_contains(activeListeners, 'mousedown') === false) {
+        if (plugin.contains(activeListeners, 'mousedown') === false) {
             google.maps.event.addListener(plugin.map, 'mousedown', function(event) {
 
                 // Unset any previous lines
@@ -325,7 +390,7 @@ function DrawOnAMap(elemId, options)
      * @access private
      */
     function _addMouseMoveListener() {
-        if (_contains(activeListeners, 'mousemove') === false) {
+        if (plugin.contains(activeListeners, 'mousemove') === false) {
             google.maps.event.addListener(plugin.map, 'mousemove', function(event) {
                 // Calculate the distance between the previous marker
                 // and the co-ordinates currentlly underneath the mouse
@@ -391,7 +456,7 @@ function DrawOnAMap(elemId, options)
      */
     function _addZoomChangedListener() {
         // Add zoom change event listener
-        if (_contains(activeListeners, 'zoom_changed') === false) {
+        if (plugin.contains(activeListeners, 'zoom_changed') === false) {
             google.maps.event.addListener(plugin.map, 'zoom_changed', function() {
                 // Call zoomStart for custom functions
                 plugin.onZoom();
@@ -466,24 +531,6 @@ function DrawOnAMap(elemId, options)
             trace.setMap(null);
             trace = null;
         }
-    }
-   
-    /**
-     * Array contains function
-     *
-     * @param Array  a   comparison array
-     * @param Object obj comparison object
-     *
-     * @access private
-     */
-    function _contains(a, obj) {
-        var i = a.length;
-        while (i--) {
-            if (a[i] === obj) {
-                return true;
-            }
-        }
-        return false;
     }
    
    /**
@@ -595,22 +642,6 @@ function DrawOnAMap(elemId, options)
     }
 
     /**
-     * Extend the options of the class
-     *
-     * @return array
-     */
-    function _extend() {
-        for(var i=1; i<arguments.length; i++) {
-            for(var key in arguments[i]) {
-                if(arguments[i].hasOwnProperty(key)) {
-                    arguments[0][key] = arguments[i][key];
-                }
-            }
-        }
-        return arguments[0];
-    }
-
-    /**
      * Get all of the get parameters from local storage
      *
      * @access private
@@ -655,7 +686,7 @@ function DrawOnAMap(elemId, options)
      */
     function _removeListener(listener) {
         google.maps.event.clearListeners(plugin.map, listener);
-        if (_contains(activeListeners, listener)) {
+        if (plugin.contains(activeListeners, listener)) {
             activeListeners.splice(listener, 1);
         }
     }
@@ -714,3 +745,9 @@ function DrawOnAMap(elemId, options)
         });
     }
 }
+
+
+/**
+ * Inherit Map Search Functions
+ */
+DrawOnAMap.prototype = new MapSearch();
