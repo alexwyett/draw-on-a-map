@@ -1,9 +1,12 @@
 /**
  * Object used for map searching
  * 
+ * @param string elemId  Target Element ID you wish to be the map
+ * @param array  options Array of options
+ * 
  * @type object
  */
-function MapSearch()
+function MapSearch(elemId)
 {
     /**
      * Default google map options
@@ -34,12 +37,54 @@ function MapSearch()
     };
     
     /**
+     * Marker array
+     *
+     * @access private
+     */
+    var controls = [], 
+        markersArray = [];
+       
+    /**
+     * Markers array setter
+     *
+     * @param object marker
+     *
+     * @access private
+     */
+    this.addMarker = function(marker) {
+        markersArray.push(marker);
+    };
+    
+    /**
+     * Clear the markers array
+     * 
+     * @returns void
+     */
+    this.clearMarkers = function() {
+        if (this.markersArray && this.markersArray.length > 0) {
+            for (i in this.markersArray) {
+                markersArray[i].setMap(null);
+            }
+            markersArray = [];
+        }
+    };
+    
+    /**
      * Return the default map options
      * 
      * @returns object
      */
     this.getDefaultMapOptions = function() {
         return defaultMapOptions;
+    };
+    
+    /**
+     * Return the markers array
+     * 
+     * @returns {MapSearch.markersArray|Array}
+     */
+    this.getMarkers = function() {
+        return markersArray;
     };
     
     /**
@@ -77,6 +122,94 @@ function MapSearch()
         }
         return false;
     };
+    
+    /**
+     * Generic map constructor
+     * 
+     * @param {Object} elem    Target Element
+     * @param {Object} options Map options
+     * 
+     * @returns {google.map}
+     */
+    this.createMap = function(elem, options) {
+        return new google.maps.Map(
+           elem,
+           options
+        );
+    };
+    
+    /**
+     * Function to create a custom map control
+     *
+     * @param string   label Control Label
+     * @param function func  Control callback function
+     *
+     * @access public
+     */
+    this.createControl = function(label, func) {
+        
+        // Create container div
+        var controlDiv = document.createElement('div');
+        controlDiv.className = 'dysMapControl';
+
+        // Set CSS for the control border
+        var controlUI = document.createElement('a');
+        controlUI.className = 'dysMapControlInner';
+        controlDiv.appendChild(controlUI);
+
+        // Set CSS for the control interior
+        var controlText = document.createElement('span');
+        controlText.innerHTML = label;
+        controlText.className = 'dysMapControlLabel';
+        controlUI.appendChild(controlText);
+       
+        // Add to array
+        controls[label] = {
+            control: controlDiv,
+            controlUI: controlUI,
+            func: func
+        }
+    }
+    
+    this.getControls = function() {
+        return controls;
+    }
+    
+    
+
+
+    /**
+     * The the controls on a google map.
+     *
+     * @param {google.map} map Google Map object
+     *
+     * @access public
+     */
+    this.setControls = function(map) {
+        
+        // Set CSS styles for the DIV containing the control
+        // Setting padding to 5 px will offset the control
+        // from the edge of the map
+        var container = document.createElement('div');
+        container.index = 1;
+        container.className = 'dysMapControlContainer';
+        
+        // Add in controls to map
+        for(i in controls) {
+            // Setup the click event listeners
+            google.maps.event.addDomListener(
+                controls[i].control,
+                'click',
+                controls[i].func
+            );
+    
+            container.appendChild(controls[i].control);
+        }
+        
+        map.controls[google.maps.ControlPosition.TOP_RIGHT].push(
+            container
+        );
+    }
 }
 
 /**
@@ -114,9 +247,7 @@ function DrawOnAMap(elemId, options)
      *
      * @access private
      */
-    var controls = [], 
-        activeListeners = [], 
-        markersArray = [], 
+    var activeListeners = [], 
         points = [];
    
     /**
@@ -142,6 +273,14 @@ function DrawOnAMap(elemId, options)
      */
     this.options = {}, 
     this.elem = {};
+    
+    /**
+     * Option to save the map state using local storage and reload on page 
+     * refresh.
+     * 
+     * @type Boolean
+     */
+    this.persistMap = false;
     
     // --------------------------- Public  Methods -------------------------- //
    
@@ -173,7 +312,11 @@ function DrawOnAMap(elemId, options)
 
         // Attempt to load the map state from storage
         var getparams = _getLocalStorage();
-
+        
+        // Create a new map
+        _createMap(false);
+        
+        // Look for local storage
         if (Object.keys(getparams).length == 4) {
                 
             // Get map params from url
@@ -183,8 +326,8 @@ function DrawOnAMap(elemId, options)
                 getparams.centerX
             );
                 
-            // Create new map and set draggable mode
-            _createMap(true);
+            // Set draggable mode on map
+            _toggleDragMode(true);
             
             // Loop through map points and add to map
             var mapPoints = JSON.parse(getparams.points);
@@ -207,9 +350,6 @@ function DrawOnAMap(elemId, options)
             // Set map zoom and center
             plugin.map.setCenter(center);
             plugin.map.setZoom(zoom);
-        } else {
-            // Create a new map
-            _createMap(false);
         }
         
         // Call empty loader function if provided
@@ -472,61 +612,13 @@ function DrawOnAMap(elemId, options)
         }
     }
 
-
-    /**
-     * Clear and add in map controls
-     *
-     * @access private
-     */
-    function _addControls() {
-        
-        // Set CSS styles for the DIV containing the control
-        // Setting padding to 5 px will offset the control
-        // from the edge of the map
-        var container = document.createElement('div');
-        container.index = 1;
-        container.className = 'dysMapControlContainer';
-        
-        // Add in controls to map
-        for(i in controls) {
-            // Setup the click event listeners
-            google.maps.event.addDomListener(
-                controls[i].control,
-                'click',
-                controls[i].func
-            );
-    
-            container.appendChild(controls[i].control);
-        }
-           
-        plugin.map.controls[google.maps.ControlPosition.TOP_RIGHT].push(
-            container
-        );
-    }
-       
-    /**
-     * Markers array setter
-     *
-     * @param object marker
-     *
-     * @access private
-     */
-    function _addToMarkersArray(marker) {
-        markersArray.push(marker);
-    }
-
     /**
      * Clears all overlays from the map
      *
      * @access private
      */
     function _clearOverlays() {
-        if (this.markersArray) {
-            for (i in this.markersArray) {
-                markersArray[i].setMap(null);
-            }
-            markersArray = [];
-        }
+        plugin.clearMarkers();
         if (trace) {
             trace.setMap(null);
             trace = null;
@@ -542,59 +634,26 @@ function DrawOnAMap(elemId, options)
     */
    function _createMap(draggable) {
         // Create new google map with provided options
-        plugin.map = new google.maps.Map(
-           plugin.elem,
-           plugin.options.mapOptions
+        plugin.map = plugin.createMap(
+            plugin.elem, 
+            plugin.options.mapOptions
         );
    
         // Add reset control
-        _createControl('Reset', function() {
+        plugin.createControl('Reset', function() {
             plugin.resetMap();
         });
        
         // Add Drag function in
-        _createControl('Drag', function() {
+        plugin.createControl('Drag', function() {
             _toggleDragMode(!plugin.isDraggable());
         });
        
         // Add in controls to map
-        _addControls();
+        plugin.setControls(plugin.map);
        
         // Turn off dragable state on first load
         _toggleDragMode(draggable);
-    }
-    
-    /**
-     * Function to create a custom map control
-     *
-     * @param string   label
-     * @param function func
-     *
-     * @access private
-     */
-    function _createControl(label, func) {
-        
-        // Create container div
-        var controlDiv = document.createElement('div');
-        controlDiv.className = 'dysMapControl';
-
-        // Set CSS for the control border
-        var controlUI = document.createElement('a');
-        controlUI.className = 'dysMapControlInner';
-        controlDiv.appendChild(controlUI);
-
-        // Set CSS for the control interior
-        var controlText = document.createElement('span');
-        controlText.innerHTML = label;
-        controlText.className = 'dysMapControlLabel';
-        controlUI.appendChild(controlText);
-       
-        // Add to array
-        controls[label] = {
-            control: controlDiv,
-            controlUI: controlUI,
-            func: func
-        }
     }
 
     /**
@@ -637,7 +696,7 @@ function DrawOnAMap(elemId, options)
             });
         }
 
-        _addToMarkersArray(trace);
+        plugin.addMarker(trace);
         trace.setMap(plugin.map);
     }
 
@@ -729,14 +788,14 @@ function DrawOnAMap(elemId, options)
             _removeListener('idle');
             _addMouseDownListener();
             _addMouseUpListener();
-            controls['Drag'].controlUI.innerHTML = 'Drag';
+            plugin.getControls()['Drag'].controlUI.innerHTML = 'Drag';
         } else {
             _removeListener('mousemove');
             _removeListener('mousedown');
             _removeListener('mouseup');
             _addZoomChangedListener();
             _addIdleListener();
-            controls['Drag'].controlUI.innerHTML = 'Draw';
+            plugin.getControls()['Drag'].controlUI.innerHTML = 'Draw';
         }
            
         // Set draggable state on map
