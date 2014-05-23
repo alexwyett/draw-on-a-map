@@ -6,7 +6,7 @@
  * 
  * @type object
  */
-function MapSearch(elemId)
+function MapSearch()
 {
     /**
      * Default google map options
@@ -41,8 +41,21 @@ function MapSearch(elemId)
      *
      * @access private
      */
-    var controls = [], 
-        markersArray = [];
+    var controls = [],
+        activeListeners = [],
+        markersArray = [],
+        map;
+    
+    /**
+     * Listeners array setter
+     *
+     * @param {string} Listener
+     *
+     * @access private
+     */
+    this.addListener = function(listener) {
+        activeListeners.push(listener);
+    };
        
     /**
      * Markers array setter
@@ -54,6 +67,18 @@ function MapSearch(elemId)
     this.addMarker = function(marker) {
         markersArray.push(marker);
     };
+       
+    /**
+     * Mouse down listener
+     *
+     * @access public
+     */
+    this.addMouseDownListener = function() {};
+    this.addMouseMoveListener = function() {};
+    this.addMouseUpListener = function() {};
+    this.addIdleListener = function() {};
+    this.addZoomChangeListener = function() {};
+    this.onDragChange = function() {};
     
     /**
      * Clear the markers array
@@ -67,75 +92,6 @@ function MapSearch(elemId)
             }
             markersArray = [];
         }
-    };
-    
-    /**
-     * Return the default map options
-     * 
-     * @returns object
-     */
-    this.getDefaultMapOptions = function() {
-        return defaultMapOptions;
-    };
-    
-    /**
-     * Return the markers array
-     * 
-     * @returns {MapSearch.markersArray|Array}
-     */
-    this.getMarkers = function() {
-        return markersArray;
-    };
-    
-    /**
-     * Extend the options of the class
-     * 
-     * @access public
-     *
-     * @return array
-     */
-    this.extend = function() {
-        for(var i=1; i<arguments.length; i++) {
-            for(var key in arguments[i]) {
-                if(arguments[i].hasOwnProperty(key)) {
-                    arguments[0][key] = arguments[i][key];
-                }
-            }
-        }
-        return arguments[0];
-    };
-    
-    /**
-     * Array contains function
-     *
-     * @param Array  a   comparison array
-     * @param Object obj comparison object
-     *
-     * @access public
-     */
-    this.contains = function(a, obj) {
-        var i = a.length;
-        while (i--) {
-            if (a[i] === obj) {
-                return true;
-            }
-        }
-        return false;
-    };
-    
-    /**
-     * Generic map constructor
-     * 
-     * @param {Object} elem    Target Element
-     * @param {Object} options Map options
-     * 
-     * @returns {google.map}
-     */
-    this.createMap = function(elem, options) {
-        return new google.maps.Map(
-           elem,
-           options
-        );
     };
     
     /**
@@ -168,16 +124,156 @@ function MapSearch(elemId)
             control: controlDiv,
             controlUI: controlUI,
             func: func
+        };
+    };
+    
+    /**
+     * Generic map constructor
+     * 
+     * @param {Object} elem    Target Element
+     * @param {Object} options Map options
+     * 
+     * @returns {google.map}
+     */
+    this.createMap = function(elem, options) {
+        this.setMap(
+            new google.maps.Map(
+                elem,
+                options
+            )
+        );
+
+        return this.getMap();
+    };
+    
+    /**
+     * Array contains function
+     *
+     * @param Array  a   comparison array
+     * @param Object obj comparison object
+     *
+     * @access public
+     */
+    this.contains = function(a, obj) {
+        var i = a.length;
+        while (i--) {
+            if (a[i] === obj) {
+                return true;
+            }
+        }
+        return false;
+    };
+    
+    /**
+     * Return if listener is active or not
+     * 
+     * @param {string} listener Listener string
+     * 
+     * @returns {Boolean}
+     */
+    this.containsListener = function(listener) {
+        return this.contains(activeListeners, listener);
+    };
+    
+    /**
+     * Return the controls of the map
+     * 
+     * @returns {Array}
+     */
+    this.getControls = function() {
+        return controls;
+    };
+    
+    /**
+     * Return the default map options
+     * 
+     * @returns object
+     */
+    this.getDefaultMapOptions = function() {
+        return defaultMapOptions;
+    };
+    
+    /**
+     * Return the map
+     * 
+     * @returns {MapSearch.map}
+     */
+    this.getMap = function() {
+        return map;
+    };
+    
+    /**
+     * Return the markers array
+     * 
+     * @returns {MapSearch.markersArray|Array}
+     */
+    this.getMarkers = function() {
+        return markersArray;
+    };
+    
+    /**
+     * Extend the options of the class
+     * 
+     * @access public
+     *
+     * @return array
+     */
+    this.extend = function() {
+        for(var i=1; i<arguments.length; i++) {
+            for(var key in arguments[i]) {
+                if(arguments[i].hasOwnProperty(key)) {
+                    arguments[0][key] = arguments[i][key];
+                }
+            }
+        }
+        return arguments[0];
+    };
+   
+    /**
+     * Turn dragable state on/off
+     *
+     * @param boolean draggable
+     *
+     * @access private
+     */
+    this.toggleDragMode = function(draggable) {
+        // Add draw controls if not in drag mode
+        if(!draggable) {
+            this.removeListener('zoom_changed');
+            this.removeListener('idle');
+            this.addMouseDownListener();
+            this.addMouseUpListener();
+        } else {
+            this.removeListener('mousemove');
+            this.removeListener('mousedown');
+            this.removeListener('mouseup');
+            this.addIdleListener();
+            this.addZoomChangeListener();
+        }
+        
+        // Draggable change event
+        this.onDragChange(draggable);
+           
+        // Set draggable state on map
+        this.getMap().setOptions({
+            draggable: draggable
+        });
+    };
+       
+    /**
+     * Remove a specific listener
+     * 
+     * @param {string} listener
+     * 
+     * @access private
+     */
+    this.removeListener = function(listener) {
+        google.maps.event.clearListeners(this.getMap(), listener);
+        if (this.containsListener(listener)) {
+            activeListeners.splice(listener, 1);
         }
     }
     
-    this.getControls = function() {
-        return controls;
-    }
-    
-    
-
-
     /**
      * The the controls on a google map.
      *
@@ -209,6 +305,17 @@ function MapSearch(elemId)
         map.controls[google.maps.ControlPosition.TOP_RIGHT].push(
             container
         );
+    };
+    
+    /**
+     * Set the google map
+     * 
+     * @param {google.map} gMap Object
+     * 
+     * @returns {null}
+     */
+    this.setMap = function(gMap) {
+        map = gMap;
     }
 }
 
@@ -247,8 +354,7 @@ function DrawOnAMap(elemId, options)
      *
      * @access private
      */
-    var activeListeners = [], 
-        points = [];
+    var points = [];
    
     /**
      * Class references
@@ -327,7 +433,7 @@ function DrawOnAMap(elemId, options)
             );
                 
             // Set draggable mode on map
-            _toggleDragMode(true);
+            plugin.toggleDragMode(true);
             
             // Loop through map points and add to map
             var mapPoints = JSON.parse(getparams.points);
@@ -348,8 +454,8 @@ function DrawOnAMap(elemId, options)
             }
             
             // Set map zoom and center
-            plugin.map.setCenter(center);
-            plugin.map.setZoom(zoom);
+            plugin.getMap().setCenter(center);
+            plugin.getMap().setZoom(zoom);
         }
         
         // Call empty loader function if provided
@@ -390,16 +496,22 @@ function DrawOnAMap(elemId, options)
      * @access public
      */
     this.isDraggable = function() {
-        return plugin.map.draggable;
+        return plugin.getMap().draggable;
     };
-
+    
     /**
-     * Return the map object
-     *
-     * @access public
+     * Draggable change event
+     * 
+     * @param {boolean} draggable
+     * 
+     * @returns {void}
      */
-    this.getMap = function() {
-        return this.map;
+    this.onDragChange = function(draggable) {
+        if(!draggable) {
+            this.getControls()['Drag'].controlUI.innerHTML = 'Drag';
+        } else {
+            this.getControls()['Drag'].controlUI.innerHTML = 'Draw';
+        }
     };
 
     /**
@@ -476,34 +588,16 @@ function DrawOnAMap(elemId, options)
     this.containsPoint = function(point) {
         return google.maps.geometry.poly.containsLocation(point, trace);
     };
-   
-    // --------------------------- Private Methods -------------------------- //
-       
-    /**
-     * Drag end listener
-     *
-     * @access private
-     */
-    function _addIdleListener() {
-        // Add draggable event listener
-        if (plugin.contains(activeListeners, 'idle') === false) {
-            google.maps.event.addListener(plugin.map, 'idle', function() {
-                 _saveMapState();
-                 plugin.onIdle();
-            });
-            activeListeners.push('idle');
-        }
-    }
        
     /**
      * Mouse down listener
      *
-     * @access private
+     * @access public
      */
-    function _addMouseDownListener() {   
+    this.addMouseDownListener = function() {
         // Add mouse down event handler
-        if (plugin.contains(activeListeners, 'mousedown') === false) {
-            google.maps.event.addListener(plugin.map, 'mousedown', function(event) {
+        if (plugin.containsListener('mousedown') === false) {
+            google.maps.event.addListener(plugin.getMap(), 'mousedown', function(event) {
 
                 // Unset any previous lines
                 _clearOverlays();
@@ -517,21 +611,20 @@ function DrawOnAMap(elemId, options)
                 _placeMarker(event.latLng);
                 
                 // Add the mouse move listener
-                _addMouseMoveListener();
-            
+                plugin.addMouseMoveListener();
             });
-            activeListeners.push('mousedown');
+            plugin.addListener('mousedown');
         }
-   }
+    };
 
     /**
      * Mouse move listener
      *
-     * @access private
+     * @access public
      */
-    function _addMouseMoveListener() {
-        if (plugin.contains(activeListeners, 'mousemove') === false) {
-            google.maps.event.addListener(plugin.map, 'mousemove', function(event) {
+    this.addMouseMoveListener = function() {
+        if (plugin.containsListener('mousemove') === false) {
+            google.maps.event.addListener(plugin.getMap(), 'mousemove', function(event) {
                 // Calculate the distance between the previous marker
                 // and the co-ordinates currentlly underneath the mouse
                 var distance = google.maps.geometry.spherical.computeDistanceBetween(
@@ -545,24 +638,24 @@ function DrawOnAMap(elemId, options)
                     _placeMarker(event.latLng);
                 }
             });
-            activeListeners.push('mousemove');
+            plugin.addListener('mousemove');
         }
-    }       
-       
+    };
+
     /**
      * Mouse up listener
      *
-     * @access private
+     * @access public
      */
-    function _addMouseUpListener() {
+    this.addMouseUpListener = function() {
         // Add mouse up event handler
-        google.maps.event.addListener(plugin.map, 'mouseup', function() {
+        google.maps.event.addListener(plugin.getMap(), 'mouseup', function() {
 
             // Record the fact that the line is no longer being drawn
             plugin.unSetActiveMode();
 
             // Remove mouse move listener
-            _removeListener('mousemove');
+            plugin.removeListener('mousemove');
 
             // Add the start point to the array of points - in order to
             // close up the polygon
@@ -582,22 +675,38 @@ function DrawOnAMap(elemId, options)
             }
            
             // Turn off draw mode and turn on drag mode
-            _toggleDragMode(true);
+            plugin.toggleDragMode(true);
            
             // Save the map state
             _saveMapState();
         });
-    }
-
+    };
+       
     /**
-     * Zoom changed listener
+     * Map Idle listener
      *
-     * @access private
+     * @access public
      */
-    function _addZoomChangedListener() {
+    this.addIdleListener = function() {
+        // Add draggable event listener
+        if (plugin.containsListener('idle') === false) {
+            google.maps.event.addListener(plugin.getMap(), 'idle', function() {
+                _saveMapState();
+                plugin.onIdle();
+                plugin.addListener('idle');
+            });
+        }
+    };
+    
+    /**
+     * Zoom Changed listener
+     *
+     * @access public
+     */
+    this.addZoomChangeListener = function() {
         // Add zoom change event listener
-        if (plugin.contains(activeListeners, 'zoom_changed') === false) {
-            google.maps.event.addListener(plugin.map, 'zoom_changed', function() {
+        if (plugin.containsListener('zoom_changed') === false) {
+            google.maps.event.addListener(plugin.getMap(), 'zoom_changed', function() {
                 // Call zoomStart for custom functions
                 plugin.onZoom();
                 
@@ -606,11 +715,12 @@ function DrawOnAMap(elemId, options)
                     plugin.unSetActiveMode();
                 }
                 
-                // Saving zoom level is handled by the idle listener
+                plugin.addListener('zoom_changed');
             });
-            activeListeners.push('zoom_changed');
         }
-    }
+    };
+   
+    // --------------------------- Private Methods -------------------------- //    
 
     /**
      * Clears all overlays from the map
@@ -634,7 +744,7 @@ function DrawOnAMap(elemId, options)
     */
    function _createMap(draggable) {
         // Create new google map with provided options
-        plugin.map = plugin.createMap(
+        plugin.createMap(
             plugin.elem, 
             plugin.options.mapOptions
         );
@@ -646,14 +756,14 @@ function DrawOnAMap(elemId, options)
        
         // Add Drag function in
         plugin.createControl('Drag', function() {
-            _toggleDragMode(!plugin.isDraggable());
+            plugin.toggleDragMode(!plugin.isDraggable());
         });
        
         // Add in controls to map
-        plugin.setControls(plugin.map);
+        plugin.setControls(plugin.getMap());
        
         // Turn off dragable state on first load
-        _toggleDragMode(draggable);
+        plugin.toggleDragMode(draggable);
     }
 
     /**
@@ -697,7 +807,7 @@ function DrawOnAMap(elemId, options)
         }
 
         plugin.addMarker(trace);
-        trace.setMap(plugin.map);
+        trace.setMap(plugin.getMap());
     }
 
     /**
@@ -716,9 +826,7 @@ function DrawOnAMap(elemId, options)
                     vars.centerY = window.localStorage.getItem('DrawOnAMap:center:y');
                 }
             } else {
-                throw new Error(
-                    'Unable to persist! Local Storage is not available.'
-                );
+                console.log('Unable to persist! Local Storage is not available.');
             }
         }
         return vars;
@@ -737,18 +845,6 @@ function DrawOnAMap(elemId, options)
         bounds.extend(location);
         _drawLine();
     }
-       
-    /**
-     * Remove a specific listener
-     * 
-     * @access private
-     */
-    function _removeListener(listener) {
-        google.maps.event.clearListeners(plugin.map, listener);
-        if (plugin.contains(activeListeners, listener)) {
-            activeListeners.splice(listener, 1);
-        }
-    }
    
     /**
      * This function reloads the url to persist the map state
@@ -760,53 +856,215 @@ function DrawOnAMap(elemId, options)
             if (typeof Storage !== 'undefined' && typeof JSON !== 'undefined') {
                 var mapPoints = JSON.stringify(points);
                 window.localStorage.setItem('DrawOnAMap:Points', mapPoints);
-                window.localStorage.setItem('DrawOnAMap:zoom', plugin.map.getZoom());
-                window.localStorage.setItem('DrawOnAMap:center:x', plugin.map.getCenter().lng());
-                window.localStorage.setItem('DrawOnAMap:center:y', plugin.map.getCenter().lat());
+                window.localStorage.setItem('DrawOnAMap:zoom', plugin.getMap().getZoom());
+                window.localStorage.setItem('DrawOnAMap:center:x', plugin.getMap().getCenter().lng());
+                window.localStorage.setItem('DrawOnAMap:center:y', plugin.getMap().getCenter().lat());
             } else {
-                throw new Error(
-                    'Unable to persist! Local Storage is not available.'
-                );
+                console.log('Unable to persist! Local Storage is not available.');
             }
         }
         
         // Call save state function
         plugin.onSaveState();
     }
-   
-   /**
-    * Turn dragable state on/off
-    *
-    * @param boolean draggable
-    *
-    * @access private
-    */
-    function _toggleDragMode(draggable) {
-        // Add draw controls if not in drag mode
-        if(!draggable) {
-            _removeListener('zoom_changed');
-            _removeListener('idle');
-            _addMouseDownListener();
-            _addMouseUpListener();
-            plugin.getControls()['Drag'].controlUI.innerHTML = 'Drag';
-        } else {
-            _removeListener('mousemove');
-            _removeListener('mousedown');
-            _removeListener('mouseup');
-            _addZoomChangedListener();
-            _addIdleListener();
-            plugin.getControls()['Drag'].controlUI.innerHTML = 'Draw';
-        }
-           
-        // Set draggable state on map
-        plugin.map.setOptions({
-            draggable: draggable
-        });
-    }
 }
 
+/**
+ * Draw a Rectange on a Map Google Maps Javascript library.
+ *
+ * Script should be initialised like this:
+ *   
+ * var doam = new DrawOnAMap(targetElementId);
+ *
+ */
+function DrawRectangleOnAMap(elemId, options)
+{
+    /**
+     * Plugin reference
+     * 
+     * @access private
+     */
+    var plugin = this,
+        rect = null,
+        mousemove = null,
+        prevPos = null,
+        prevWidth = 0;
+
+    /**
+     * Defaults
+     *
+     * @access private
+     */
+    var defaults = {
+        strokeColor: '#FF0000',
+        strokeWeight: 2,
+        fillColor: '#FF0000',
+        fillOpacity: 0.2
+    };
+   
+    /**
+     * Class objects
+     *
+     * @access public
+     */
+    this.elem = {};
+    
+    // --------------------------- Public  Methods -------------------------- //
+   
+    /**
+     * Class constructor
+     *
+     * @param function callback Callback function
+     *
+     * @access public
+     */    
+    this.init = function(callback) {
+        
+        // Get the element
+        var elem = document.getElementById(elemId);
+        
+        // Test for element
+        if (elem === null) {
+           throw new Error('Unable to find element with id of: ' + elemId);
+        }
+       
+        // Set element
+        plugin.elem = elem;
+        
+        // Merge map defaults with line defaults
+        defaults.mapOptions = plugin.getDefaultMapOptions();
+        
+        // Initialise public options
+        plugin.options = plugin.extend({}, defaults, options);
+        
+        // Create a new map
+        plugin.createMap(elem, plugin.options.mapOptions);
+        
+        // Set drawing mode
+        plugin.toggleDragMode(false);
+        
+        // Call empty loader function if provided
+        if (typeof callback === 'function') {
+            callback();
+        }
+    };
+    
+    /**
+     * Return the rectangle object
+     * 
+     * @returns {google.maps.Rectangle|null}
+     */
+    this.getRectangle = function() {
+        return rect;
+    };
+       
+    /**
+     * Mouse down listener - creates a rectangle area.
+     *
+     * @access public
+     */
+    this.addMouseDownListener = function(e) {
+        plugin.addMouseMoveListener();
+        google.maps.event.addListener(plugin.getMap(), 'mousedown', function(e) {
+            if (rect !== null) {
+                rect.setMap(null);
+            }
+            rect = new google.maps.Rectangle();
+            rect.setCenter(e.latLng, 0, 0);
+            rect.setMap(plugin.getMap());
+            prevPos = e.latLng;
+            mousemove = true;
+        });
+    };
+       
+    /**
+     * Mouse down listener - creates a rectangle area.
+     *
+     * @access public
+     */
+    this.addMouseMoveListener = function(e) {
+        google.maps.event.addListener(plugin.getMap(), 'mousemove', function(e) {
+            if (rect !== null && mousemove === true) {
+                
+                var bounds;
+                var diff = prevPos.lat() - e.latLng.lat();
+                
+                if (rect.getBounds().getSouthWest().A < e.latLng.A && diff >= 0) {
+                    bounds = new google.maps.LatLngBounds(
+                        rect.getBounds().getSouthWest(),
+                        e.latLng
+                    );
+                } else {
+                    bounds = new google.maps.LatLngBounds(
+                        e.latLng,
+                        rect.getBounds().getNorthEast()
+                    );
+                }
+
+                rect.setOptions({
+                    bounds: bounds,
+                    clickable: false,
+                    editable: false
+                });
+            }
+        });
+    };
+       
+    /**
+     * Mouse down listener - creates a rectangle area.
+     *
+     * @access public
+     */
+    this.addMouseUpListener = function(e) {
+        google.maps.event.addListener(plugin.getMap(), 'mouseup', function() {
+            mousemove = false;
+        });
+    };
+    
+    /**
+     * Set the center of a rectangle
+     * 
+     * @param {google.maps.LatLng} latLng
+     * @param {integer} height
+     * @param {integer} width
+     * 
+     * @returns {google.maps.Rectangle}
+     */
+    google.maps.Rectangle.prototype.setCenter = function(latLng, height, width) {
+        var lat = latLng.lat();
+        var lng = latLng.lng();
+        var bounds = new google.maps.LatLngBounds(
+            new google.maps.LatLng((lat - (height / 2)), lng  - (width / 2)),
+            new google.maps.LatLng((lat + (height / 2)), lng  + (width / 2))
+        );
+        this.setOptions({bounds: bounds});
+    }
+    
+    /**
+     * Calc distance between two points
+     * 
+     * @param {google.maps.LatLng} latLng1
+     * @param {google.maps.LatLng} latLng2
+     * 
+     * @returns {Number}
+     */
+    this.calcDistance = function (latLng1, latLng2) {
+        var R = 6371; // km (change this constant to get miles)
+        var dLat = (latLng2.lat() - latLng1.lat()) * Math.PI / 180;
+        var dLon = (latLng2.lng() - latLng1.lng()) * Math.PI / 180;
+        var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(latLng1.lat() * Math.PI / 180 ) * Math.cos(latLng2.lat() * Math.PI / 180 ) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+        var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        var d = R * c;
+        if (d>1) return Math.round(d);
+        else if (d<=1) return Math.round(d*1000);
+        return d;
+    }
+}
 
 /**
  * Inherit Map Search Functions
  */
 DrawOnAMap.prototype = new MapSearch();
+DrawRectangleOnAMap.prototype = new MapSearch();
